@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, send_from_directory
 import psycopg2
+import os
 
 app = Flask(__name__)
 
-DB_URL = "postgresql://postgres:4cfW3XZmCNqIQi4f@db.powotolytlsxhtecbmbq.supabase.co:5432/postgres"
+# 🔥 AHORA USA VARIABLE DE ENTORNO (RENDER)
+DB_URL = os.environ.get("DB_URL")
 
 def get_db():
     return psycopg2.connect(DB_URL)
@@ -71,7 +73,6 @@ def add_event():
     return {"status": "ok"}
 
 
-# 👉 ESTE ES EL QUE TE FALTABA
 @app.route("/events/<int:user_id>")
 def get_events(user_id):
     db = get_db()
@@ -137,6 +138,6 @@ def home():
     return send_from_directory("static", "index.html")
 
 
-# 🔥 IMPORTANTE (para usar en celular)
+# 🔥 PARA RENDER (NO TOCAR MÁS)
 if __name__ == "__main__":
     app.run()
