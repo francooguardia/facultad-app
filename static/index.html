@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mi Facultad</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: white;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h1 { text-align: center; }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: none;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      border-radius: 10px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .day {
+      background: #0f172a;
+      padding: 10px;
+      border-radius: 10px;
+      min-height: 80px;
+      cursor: pointer;
+    }
+
+    .event {
+      background: #3b82f6;
+      margin-top: 5px;
+      padding: 5px;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📅 Mi Facultad</h1>
+
+<div class="card">
+  <h2>Login</h2>
+  <input id="user" placeholder="usuario">
+  <input id="pass" type="password" placeholder="contraseña">
+  <button onclick="login()">Entrar</button>
+</div>
+
+<div class="card">
+  <h2>Agregar Evento</h2>
+  <input id="title" placeholder="Examen...">
+  <input id="date" type="date">
+  <button onclick="addEvent()">Guardar Evento</button>
+</div>
+
+<div class="card">
+  <h2>Calendario</h2>
+  <div class="calendar" id="calendar"></div>
+</div>
+
+<div class="card">
+  <h2>Nota del día seleccionado</h2>
+  <textarea id="note"></textarea>
+  <button onclick="saveNote()">💾 Guardar</button>
+</div>
+
+</div>
+
+<script>
+let user_id = null
+let selectedDate = null
+let events = []
+
+async function login(){
+  const res = await fetch("/login",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      username:user.value,
+      password:pass.value
+    })
+  })
+
+  const data = await res.json()
+
+  if(data.user_id){
+    user_id = data.user_id
+    alert("Logueado ✅")
+    loadEvents()
+  } else {
+    alert("Error ❌")
+  }
+}
+
+async function addEvent(){
+  await fetch("/add_event",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      user_id,
+      title:title.value,
+      date:date.value
+    })
+  })
+
+  loadEvents()
+}
+
+async function loadEvents(){
+  const res = await fetch("/events/" + user_id)
+  events = await res.json()
+  renderCalendar()
+}
+
+function renderCalendar(){
+  const cal = document.getElementById("calendar")
+  cal.innerHTML = ""
+
+  for(let i=1;i<=31;i++){
+    const day = document.createElement("div")
+    day.className = "day"
+    day.innerHTML = `<b>${i}</b>`
+
+    const dateStr = `2026-03-${String(i).padStart(2,"0")}`
+
+    events.forEach(e=>{
+      if(e[2] === dateStr){
+        const ev = document.createElement("div")
+        ev.className = "event"
+        ev.innerText = e[1]
+        day.appendChild(ev)
+      }
+    })
+
+    day.onclick = ()=>selectDate(dateStr)
+
+    cal.appendChild(day)
+  }
+}
+
+async function selectDate(date){
+  selectedDate = date
+
+  const res = await fetch(`/note/${user_id}/${date}`)
+  const data = await res.json()
+
+  note.value = data[0]
+}
+
+async function saveNote(){
+  await fetch("/save_note",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      user_id,
+      date:selectedDate,
+      content:note.value
+    })
+  })
+
+  alert("Guardado")
+}
+</script>
+
+</body>
+</html>
