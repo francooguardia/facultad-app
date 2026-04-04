@@ -1,33 +1,54 @@
 from flask import Flask, request, jsonify, send_from_directory
 import psycopg2
 import os
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-# 🔥 AHORA USA VARIABLE DE ENTORNO (RENDER)
+# 🔥 DB desde Render
 DB_URL = os.environ.get("DB_URL")
 
 def get_db():
     return psycopg2.connect(DB_URL)
 
-# -------- CREAR USUARIO (TEMPORAL) --------
+# -------- REGISTER --------
 
-@app.route("/create_user")
-def create_user():
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
     db = get_db()
     cur = db.cursor()
 
     cur.execute(
-        "INSERT INTO users (username, password) VALUES (%s, %s)",
-        ("admin", "1234")
+        "INSERT INTO users (username, password, email) VALUES (%s, %s, %s)",
+        (data["username"], data["password"], data["email"])
     )
 
     db.commit()
+
+    # 📧 enviar mail
+    try:
+        msg = MIMEText(f"Bienvenido {data['username']} a Facultad Franco 🚀")
+        msg["Subject"] = "Registro exitoso"
+        msg["From"] = os.environ.get("EMAIL_USER")
+        msg["To"] = data["email"]
+
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(
+            os.environ.get("EMAIL_USER"),
+            os.environ.get("EMAIL_PASS")
+        )
+        server.send_message(msg)
+        server.quit()
+
+    except Exception as e:
+        print("Error enviando mail:", e)
+
     cur.close()
     db.close()
 
-    return "usuario creado"
-
+    return {"status": "registered"}
 
 # -------- LOGIN --------
 
@@ -52,7 +73,6 @@ def login():
     else:
         return {"error": "error"}, 401
 
-
 # -------- EVENTS --------
 
 @app.route("/add_event", methods=["POST"])
@@ -72,7 +92,6 @@ def add_event():
 
     return {"status": "ok"}
 
-
 @app.route("/events/<int:user_id>")
 def get_events(user_id):
     db = get_db()
@@ -89,7 +108,6 @@ def get_events(user_id):
     db.close()
 
     return jsonify(events)
-
 
 # -------- NOTES --------
 
@@ -112,7 +130,6 @@ def save_note():
 
     return {"status": "saved"}
 
-
 @app.route("/note/<int:user_id>/<date>")
 def get_note(user_id, date):
     db = get_db()
@@ -130,14 +147,12 @@ def get_note(user_id, date):
 
     return jsonify(note if note else [""])
 
-
 # -------- FRONT --------
 
 @app.route("/")
 def home():
     return send_from_directory("static", "index.html")
 
-
-# 🔥 PARA RENDER (NO TOCAR MÁS)
+# 🔥 PARA RENDER
 if __name__ == "__main__":
     app.run()
