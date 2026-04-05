@@ -18,41 +18,50 @@ def get_db():
 @app.route("/register", methods=["POST"])
 def register():
     try:
-        data = request.json
+        data = request.get_json()
+
+        if not data:
+            return {"error": "No data received"}, 400
+
+        username = data.get("username")
+        password = data.get("password")
+        email = data.get("email")
+
+        if not username or not password:
+            return {"error": "Faltan datos"}, 400
+
         db = get_db()
         cur = db.cursor()
 
         # 🚫 evitar usuarios duplicados
-        cur.execute("SELECT id FROM users WHERE username=%s", (data["username"],))
+        cur.execute("SELECT id FROM users WHERE username=%s", (username,))
         if cur.fetchone():
             return {"error": "Usuario ya existe"}, 400
 
         cur.execute(
             "INSERT INTO users (username, password, email) VALUES (%s, %s, %s)",
-            (data["username"], data["password"], data["email"])
+            (username, password, email)
         )
 
         db.commit()
 
-        # 📧 enviar mail (si está configurado)
+        # 📧 enviar mail (opcional)
         try:
             email_user = os.environ.get("EMAIL_USER")
             email_pass = os.environ.get("EMAIL_PASS")
 
-            if email_user and email_pass:
+            if email_user and email_pass and email:
                 msg = MIMEText(f"""
-Hola {data['username']} 👋
+Hola {username} 👋
 
 Tu cuenta en Facultad Franco fue creada correctamente 🚀
-
-Ahora podés organizar tus materias, eventos y notas.
 
 ¡Éxitos en tu cursada! 📚
                 """)
 
                 msg["Subject"] = "Registro exitoso"
                 msg["From"] = email_user
-                msg["To"] = data["email"]
+                msg["To"] = email
 
                 server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
                 server.login(email_user, email_pass)
@@ -76,13 +85,17 @@ Ahora podés organizar tus materias, eventos y notas.
 @app.route("/login", methods=["POST"])
 def login():
     try:
-        data = request.json
+        data = request.get_json()
+
+        username = data.get("username")
+        password = data.get("password")
+
         db = get_db()
         cur = db.cursor()
 
         cur.execute(
-            "SELECT id FROM users WHERE username=%s AND password=%s",
-            (data["username"], data["password"])
+            "SELECT id FROM users WHERE LOWER(username)=LOWER(%s) AND password=%s",
+            (username, password)
         )
 
         user = cur.fetchone()
@@ -104,7 +117,8 @@ def login():
 @app.route("/add_event", methods=["POST"])
 def add_event():
     try:
-        data = request.json
+        data = request.get_json()
+
         db = get_db()
         cur = db.cursor()
 
@@ -150,7 +164,8 @@ def get_events(user_id):
 @app.route("/save_note", methods=["POST"])
 def save_note():
     try:
-        data = request.json
+        data = request.get_json()
+
         db = get_db()
         cur = db.cursor()
 
